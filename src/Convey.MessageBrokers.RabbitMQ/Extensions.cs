@@ -3,11 +3,10 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Autofac;
 using Convey.MessageBrokers.RabbitMQ.Publishers;
 using Convey.MessageBrokers.RabbitMQ.Subscribers;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using RawRabbit;
 using RawRabbit.Common;
 using RawRabbit.Configuration;
@@ -20,29 +19,20 @@ namespace Convey.MessageBrokers.RabbitMQ
 {
     public static class Extensions
     {
+        private const string SectionName = "rabbitMq";
+        private const string RegistryName = "messageBrokers.rabbitMq";
+        
         public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app)
             => new BusSubscriber(app);
 
-        public static void AddRabbitMq(this ContainerBuilder builder)
+        public static void AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName)
         {
-            builder.Register(context =>
-            {
-                var configuration = context.Resolve<IConfiguration>();
-                var options = configuration.GetOptions<RabbitMqOptions>("rabbitMq");
+            var rabbitMqOptions = builder.GetOptions<RabbitMqOptions>(sectionName);
+            var rawRabbitOptions = builder.GetOptions<RawRabbitOptions>(sectionName);
+            builder.Services.AddSingleton(rabbitMqOptions);
+            builder.Services.AddSingleton(rawRabbitOptions);
 
-                return options;
-            }).SingleInstance();
-
-            builder.Register(context =>
-            {
-                var configuration = context.Resolve<IConfiguration>();
-                var options = configuration.GetOptions<RawRabbitConfiguration>("rabbitMq");
-
-                return options;
-            }).SingleInstance();
-          
-            builder.RegisterType<BusPublisher>().As<IBusPublisher>()
-                .InstancePerDependency();
+            builder.Services.AddScoped<IBusPublisher, BusPublisher>();
 
             ConfigureBus(builder);
         }
@@ -50,12 +40,12 @@ namespace Convey.MessageBrokers.RabbitMQ
         internal static string Underscore(this string value)
             => string.Concat(value.Select((x, i) => i > 0 && char.IsUpper(x) ? "_" + x.ToString() : x.ToString()));
 
-        private static void ConfigureBus(ContainerBuilder builder)
+        private static void ConfigureBus(IConveyBuilder builder)
         {
-            builder.Register<IInstanceFactory>(context =>
+            builder.Services.AddSingleton<IInstanceFactory>(serviceProvider =>
             {
-                var options = context.Resolve<RabbitMqOptions>();
-                var configuration = context.Resolve<RawRabbitConfiguration>();
+                var options = serviceProvider.GetService<RabbitMqOptions>();
+                var configuration = serviceProvider.GetService<RawRabbitConfiguration>();
                 var namingConventions = new CustomNamingConventions(options.Namespace);
 
                 return RawRabbitFactory.CreateInstanceFactory(new RawRabbitOptions
@@ -73,8 +63,9 @@ namespace Convey.MessageBrokers.RabbitMQ
                         .UseMessageContext<CorrelationContext>()
                         .UseContextForwarding()
                 });
-            }).SingleInstance();
-            builder.Register(context => context.Resolve<IInstanceFactory>().Create());
+            });
+            
+            builder.Services.AddScoped(serviceProvider => serviceProvider.GetService<IInstanceFactory>().Create());
         }
 
         private class CustomNamingConventions : NamingConventions
