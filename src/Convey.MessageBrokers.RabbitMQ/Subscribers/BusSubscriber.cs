@@ -31,13 +31,13 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             _retryInterval = options.RetryInterval > 0 ? options.RetryInterval : 2;
         }
 
-        public IBusSubscriber SubscribeMessage<TMessage>(Func<IServiceProvider, Task> handle, string @namespace = null, 
+        public IBusSubscriber SubscribeMessage<TMessage>(Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle, string @namespace = null, 
             string queueName = null, Func<TMessage, ConveyException, IMessage> onError = null)
             where TMessage : IMessage
         {
-            _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (command, correlationContext) =>
+            _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
                 {
-                    return await TryHandleAsync(command, correlationContext, () => handle(_serviceProvider), onError);
+                    return await TryHandleAsync(message, correlationContext, () => handle(_serviceProvider, message, correlationContext), onError);
                 },
                 ctx => ctx.UseSubscribeConfiguration(cfg =>
                     cfg.FromDeclaredQueue(q => q.WithName(GetQueueName<TMessage>(@namespace, queueName)))));
