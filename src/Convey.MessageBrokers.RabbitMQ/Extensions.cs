@@ -25,16 +25,18 @@ namespace Convey.MessageBrokers.RabbitMQ
         public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app)
             => new BusSubscriber(app);
 
-        public static void AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName)
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName)
         {
             var rabbitMqOptions = builder.GetOptions<RabbitMqOptions>(sectionName);
-            var rawRabbitOptions = builder.GetOptions<RawRabbitOptions>(sectionName);
+            var rawRabbitOptions = builder.GetOptions<RawRabbitConfiguration>(sectionName);
             builder.Services.AddSingleton(rabbitMqOptions);
             builder.Services.AddSingleton(rawRabbitOptions);
 
-            builder.Services.AddScoped<IBusPublisher, BusPublisher>();
+            builder.Services.AddTransient<IBusPublisher, BusPublisher>();
 
             ConfigureBus(builder);
+
+            return builder;
         }
         
         internal static string Underscore(this string value)
@@ -65,7 +67,7 @@ namespace Convey.MessageBrokers.RabbitMQ
                 });
             });
             
-            builder.Services.AddScoped(serviceProvider => serviceProvider.GetService<IInstanceFactory>().Create());
+            builder.Services.AddTransient<IBusClient>(serviceProvider => serviceProvider.GetService<IInstanceFactory>().Create());
         }
 
         private class CustomNamingConventions : NamingConventions

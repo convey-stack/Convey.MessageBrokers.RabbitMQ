@@ -37,7 +37,16 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         {
             _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
                 {
-                    return await TryHandleAsync(message, correlationContext, () => handle(_serviceProvider, message, correlationContext), onError);
+                    try
+                    {
+                        return await TryHandleAsync(message, correlationContext, handle, onError);
+
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                        throw;
+                    }
                 },
                 ctx => ctx.UseSubscribeConfiguration(cfg =>
                     cfg.FromDeclaredQueue(q => q.WithName(GetQueueName<TMessage>(@namespace, queueName)))));
@@ -47,7 +56,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
 
         private async Task<Acknowledgement> TryHandleAsync<TMessage>(TMessage message,
             CorrelationContext correlationContext,
-            Func<Task> handle, Func<TMessage, ConveyException, IMessage> onError = null)
+            Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle, Func<TMessage, ConveyException, IMessage> onError = null)
         {
             var currentRetry = 0;
             var retryPolicy = Policy
@@ -69,7 +78,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                     
                     _logger.LogInformation(preLogMessage);
 
-                    await handle();
+                    await handle(_serviceProvider, message, correlationContext);
 
                     var postLogMessage = $"Handled a message: '{messageName}' " +
                                          $"with correlation id: '{correlationContext.Id}'. {retryMessage}";
