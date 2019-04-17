@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Convey.MessageBrokers.RabbitMQ.Builders;
 using Convey.MessageBrokers.RabbitMQ.Publishers;
 using Convey.MessageBrokers.RabbitMQ.Subscribers;
 using Microsoft.AspNetCore.Builder;
@@ -27,11 +28,21 @@ namespace Convey.MessageBrokers.RabbitMQ
 
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName)
         {
-            var rabbitMqOptions = builder.GetOptions<RabbitMqOptions>(sectionName);
-            var rawRabbitOptions = builder.GetOptions<RawRabbitConfiguration>(sectionName);
-            builder.Services.AddSingleton(rabbitMqOptions);
-            builder.Services.AddSingleton(rawRabbitOptions);
+            var options = builder.GetOptions<RabbitMqOptions>(sectionName);
+            return builder.AddRabbitMq(options);
+        }
+        
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, 
+            Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions)
+        {
+            var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
+            return builder.AddRabbitMq(options);
+        }
 
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options)
+        {
+            builder.Services.AddSingleton(options);
+            builder.Services.AddSingleton<RawRabbitConfiguration>(options);
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
 
             ConfigureBus(builder);
