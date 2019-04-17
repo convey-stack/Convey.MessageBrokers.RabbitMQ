@@ -41,6 +41,11 @@ namespace Convey.MessageBrokers.RabbitMQ
 
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options)
         {
+            if (!builder.TryRegister(RegistryName))
+            {
+                return builder;
+            }
+            
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<RawRabbitConfiguration>(options);
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
