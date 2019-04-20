@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Convey.Types;
 
 namespace Convey.MessageBrokers.RabbitMQ
 {
