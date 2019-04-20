@@ -18,7 +18,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Publishers
         }
 
         public async Task PublishAsync<TMessage>(TMessage message, ICorrelationContext context)
-            where TMessage : IMessage
+            where TMessage : class
             => await _busClient.PublishAsync(message, ctx => ctx.UseMessageContext(context)
                 .UsePublishConfiguration(p => p.WithRoutingKey(GetRoutingKey(message))));
 
