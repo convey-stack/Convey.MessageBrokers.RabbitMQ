@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Threading.Tasks;
-using Convey.Types;
 using RawRabbit;
 using RawRabbit.Enrichers.MessageContext;
 

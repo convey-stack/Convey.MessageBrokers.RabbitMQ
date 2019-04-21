@@ -6,7 +6,6 @@
   
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\..\..\Convey\src\Convey\Convey.csproj" />
-    <ProjectReference Include="..\..\..\Convey.Types\src\Convey.Types\Convey.Types.csproj" />
     <ProjectReference Include="..\..\..\Convey.MessageBrokers\src\Convey.MessageBrokers\Convey.MessageBrokers.csproj" />
   </ItemGroup>
   
