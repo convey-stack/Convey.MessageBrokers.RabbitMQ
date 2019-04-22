@@ -49,6 +49,7 @@ namespace Convey.MessageBrokers.RabbitMQ
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<RawRabbitConfiguration>(options);
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
+            builder.Services.AddSingleton<ICorrelationContextAccessor>(new CorrelationContextAccessor());
 
             ConfigureBus(builder);
 
