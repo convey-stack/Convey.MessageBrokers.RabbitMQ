@@ -40,8 +40,10 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 {
                     try
                     {
+                        var accessor = _serviceProvider.GetService<ICorrelationContextAccessor>();
+                        accessor.CorrelationContext = correlationContext;
+                        
                         return await TryHandleAsync(message, correlationContext, handle, onError);
-
                     }
                     catch (Exception e)
                     {
