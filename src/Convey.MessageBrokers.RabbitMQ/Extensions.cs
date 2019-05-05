@@ -5,12 +5,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Convey.MessageBrokers.RabbitMQ.Builders;
 using Convey.MessageBrokers.RabbitMQ.Publishers;
+using Convey.MessageBrokers.RabbitMQ.Registers;
 using Convey.MessageBrokers.RabbitMQ.Subscribers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using RawRabbit;
 using RawRabbit.Common;
 using RawRabbit.Configuration;
+using RawRabbit.DependencyInjection;
 using RawRabbit.Enrichers.MessageContext;
 using RawRabbit.Instantiation;
 using RawRabbit.Pipe;
@@ -26,20 +28,22 @@ namespace Convey.MessageBrokers.RabbitMQ
         public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app)
             => new BusSubscriber(app);
 
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName)
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName,
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
         {
             var options = builder.GetOptions<RabbitMqOptions>(sectionName);
-            return builder.AddRabbitMq(options);
+            return builder.AddRabbitMq(options, registerPlugins);
         }
         
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, 
-            Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions)
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions, 
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
         {
             var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
-            return builder.AddRabbitMq(options);
+            return builder.AddRabbitMq(options, registerPlugins);
         }
 
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options)
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options, 
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
         {
             if (!builder.TryRegister(RegistryName))
             {
@@ -51,18 +55,17 @@ namespace Convey.MessageBrokers.RabbitMQ
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
             builder.Services.AddSingleton<ICorrelationContextAccessor>(new CorrelationContextAccessor());
 
-            ConfigureBus(builder);
+            ConfigureBus(builder, registerPlugins);
 
             return builder;
         }
-        
-        internal static string Underscore(this string value)
-            => string.Concat(value.Select((x, i) => i > 0 && char.IsUpper(x) ? "_" + x.ToString() : x.ToString()));
 
-        private static void ConfigureBus(IConveyBuilder builder)
+        private static void ConfigureBus(IConveyBuilder builder, 
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
         {
             builder.Services.AddSingleton<IInstanceFactory>(serviceProvider =>
             {
+                var register = registerPlugins?.Invoke(new RabbitMqPluginRegister(serviceProvider));
                 var options = serviceProvider.GetService<RabbitMqOptions>();
                 var configuration = serviceProvider.GetService<RawRabbitConfiguration>();
                 var namingConventions = new CustomNamingConventions(options.Namespace);
@@ -71,16 +74,22 @@ namespace Convey.MessageBrokers.RabbitMQ
                 {
                     DependencyInjection = ioc =>
                     {
+                        register?.Register(ioc);
                         ioc.AddSingleton(options);
                         ioc.AddSingleton(configuration);
                         ioc.AddSingleton<INamingConventions>(namingConventions);
                     },
-                    Plugins = p => p
+                    Plugins = p =>
+                    {
+                        register?.Register(p);
+                        
+                        p
                         .UseAttributeRouting()
                         .UseRetryLater()
                         .UpdateRetryInfo()
                         .UseMessageContext<CorrelationContext>()
-                        .UseContextForwarding()
+                        .UseContextForwarding();
+                    }
                 });
             });
             
