@@ -9,6 +9,6 @@ namespace Convey.MessageBrokers.RabbitMQ
         IServiceProvider ServiceProvider { get; }
         IRabbitMqPluginRegister AddPlugin(Action<IClientBuilder> buildClient, Action<IDependencyRegister> registerDependencies = null);
         void Register(IDependencyRegister ioc);
-        void Register(IClientBuilder p);
+        void Register(IClientBuilder builder);
     }
 }

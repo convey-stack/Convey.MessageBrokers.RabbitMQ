@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using RawRabbit;
 using RawRabbit.Common;
 using RawRabbit.Configuration;
-using RawRabbit.DependencyInjection;
 using RawRabbit.Enrichers.MessageContext;
 using RawRabbit.Instantiation;
 using RawRabbit.Pipe;
@@ -60,7 +58,7 @@ namespace Convey.MessageBrokers.RabbitMQ
             return builder;
         }
 
-        private static void ConfigureBus(IConveyBuilder builder, 
+        private static void ConfigureBus(IConveyBuilder builder,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
         {
             builder.Services.AddSingleton<IInstanceFactory>(serviceProvider =>
@@ -82,27 +80,27 @@ namespace Convey.MessageBrokers.RabbitMQ
                     Plugins = p =>
                     {
                         register?.Register(p);
-                        
-                        p
-                        .UseAttributeRouting()
-                        .UseRetryLater()
-                        .UpdateRetryInfo()
-                        .UseMessageContext<CorrelationContext>()
-                        .UseContextForwarding();
+                        p.UseAttributeRouting()
+                            .UseRetryLater()
+                            .UpdateRetryInfo()
+                            .UseMessageContext<CorrelationContext>()
+                            .UseContextForwarding();
                     }
                 });
             });
-            
-            builder.Services.AddTransient<IBusClient>(serviceProvider => serviceProvider.GetService<IInstanceFactory>().Create());
+
+            builder.Services.AddTransient(serviceProvider => serviceProvider.GetService<IInstanceFactory>().Create());
         }
 
         private class CustomNamingConventions : NamingConventions
         {
             public CustomNamingConventions(string defaultNamespace)
             {
+                var assemblyName = Assembly.GetEntryAssembly().GetName().Name;
                 ExchangeNamingConvention = type => GetNamespace(type, defaultNamespace).ToLowerInvariant();
                 RoutingKeyConvention = type =>
-                    $"#.{GetRoutingKeyNamespace(type, defaultNamespace)}{type.Name.Underscore()}".ToLowerInvariant();
+                    $"{GetRoutingKeyNamespace(type, defaultNamespace)}{type.Name.Underscore()}".ToLowerInvariant();
+                QueueNamingConvention = type => GetQueueName(assemblyName, type, defaultNamespace);
                 ErrorExchangeNamingConvention = () => $"{defaultNamespace}.error";
                 RetryLaterExchangeConvention = span => $"{defaultNamespace}.retry";
                 RetryLaterQueueNameConvetion = (exchange, span) =>
@@ -120,7 +118,15 @@ namespace Convey.MessageBrokers.RabbitMQ
             {
                 var @namespace = type.GetCustomAttribute<MessageNamespaceAttribute>()?.Namespace ?? defaultNamespace;
 
-                return string.IsNullOrWhiteSpace(@namespace) ? "#" : $"{@namespace}";
+                return string.IsNullOrWhiteSpace(@namespace) ? type.Name.Underscore() : $"{@namespace}";
+            }
+
+            private static string GetQueueName(string assemblyName, Type type, string defaultNamespace)
+            {
+                var @namespace = type.GetCustomAttribute<MessageNamespaceAttribute>()?.Namespace ?? defaultNamespace;
+                var separatedNamespace = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : $"{@namespace}.";
+
+                return $"{assemblyName}/{separatedNamespace}{type.Name.Underscore()}".ToLowerInvariant();
             }
         }
 

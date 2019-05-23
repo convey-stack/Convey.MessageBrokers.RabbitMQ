@@ -17,7 +17,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         private readonly ILogger _logger;
         private readonly IBusClient _busClient;
         private readonly IServiceProvider _serviceProvider;        
-        private readonly string _defaultNamespace;
         private readonly int _retries;
         private readonly int _retryInterval;
 
@@ -27,32 +26,30 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             _serviceProvider = app.ApplicationServices.GetService<IServiceProvider>();
             _busClient = _serviceProvider.GetService<IBusClient>();
             var options = _serviceProvider.GetService<RabbitMqOptions>();
-            _defaultNamespace = options.Namespace;
             _retries = options.Retries >= 0 ? options.Retries : 3;
             _retryInterval = options.RetryInterval > 0 ? options.RetryInterval : 2;
         }
 
-        public IBusSubscriber SubscribeMessage<TMessage>(Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle, string @namespace = null, 
-            string queueName = null, Func<TMessage, ConveyException, object> onError = null)
+        public IBusSubscriber Subscribe<TMessage>(
+            Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle,
+            Func<TMessage, ConveyException, object> onError = null)
             where TMessage : class
         {
             _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
+            {
+                try
                 {
-                    try
-                    {
-                        var accessor = _serviceProvider.GetService<ICorrelationContextAccessor>();
-                        accessor.CorrelationContext = correlationContext;
-                        
-                        return await TryHandleAsync(message, correlationContext, handle, onError);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e);
-                        throw;
-                    }
-                },
-                ctx => ctx.UseSubscribeConfiguration(cfg =>
-                    cfg.FromDeclaredQueue(q => q.WithName(GetQueueName<TMessage>(@namespace, queueName)))));
+                    var accessor = _serviceProvider.GetService<ICorrelationContextAccessor>();
+                    accessor.CorrelationContext = correlationContext;
+
+                    return await TryHandleAsync(message, correlationContext, handle, onError);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+            });
 
             return this;
         }
@@ -110,19 +107,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 }
                 
             });
-        }
-
-        private string GetQueueName<T>(string @namespace = null, string name = null)
-        {
-            @namespace = string.IsNullOrWhiteSpace(@namespace)
-                ? (string.IsNullOrWhiteSpace(_defaultNamespace) ? string.Empty : _defaultNamespace)
-                : @namespace;
-
-            var separatedNamespace = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : $"{@namespace}.";
-
-            return (string.IsNullOrWhiteSpace(name)
-                ? $"{Assembly.GetEntryAssembly().GetName().Name}/{separatedNamespace}{typeof(T).Name.Underscore()}"
-                : $"{name}/{separatedNamespace}{typeof(T).Name.Underscore()}").ToLowerInvariant();
         }
     }
 }

@@ -31,7 +31,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Registers
         public void Register(IDependencyRegister ioc)
             => _plugins.ForEach(t => t.registerDependencies?.Invoke(ioc));
 
-        public void Register(IClientBuilder p)
-            => _plugins.ForEach(t => t.buildClient(p));
+        public void Register(IClientBuilder builder)
+            => _plugins.ForEach(t => t.buildClient(builder));
     }
 }
