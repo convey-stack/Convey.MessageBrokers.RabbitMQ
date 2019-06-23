@@ -6,10 +6,12 @@ namespace Convey.MessageBrokers.RabbitMQ
     public class MessageNamespaceAttribute : Attribute
     {
         public string Namespace { get; }
+        public bool External { get; }
 
-        public MessageNamespaceAttribute(string @namespace)
+        public MessageNamespaceAttribute(string @namespace, bool external = true)
         {
             Namespace = @namespace?.ToLowerInvariant();
+            External = external;
         }
     }
 }
