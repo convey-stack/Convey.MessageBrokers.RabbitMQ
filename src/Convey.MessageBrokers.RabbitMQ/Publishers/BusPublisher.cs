@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Threading.Tasks;
 using RawRabbit;
 using RawRabbit.Enrichers.MessageContext;
