@@ -31,7 +31,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         }
 
         public IBusSubscriber Subscribe<TMessage>(Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle,
-            Func<TMessage, ConveyException, object> onError = null) where TMessage : class
+            Func<TMessage, Exception, object> onError = null) where TMessage : class
         {
             _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
             {
@@ -54,7 +54,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
 
         private async Task<Acknowledgement> TryHandleAsync<TMessage>(TMessage message,
             ICorrelationContext correlationContext, Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle,
-            Func<TMessage, ConveyException, object> onError = null)
+            Func<TMessage, Exception, object> onError = null)
         {
             var currentRetry = 0;
             var retryPolicy = Policy
