@@ -26,6 +26,14 @@ namespace Convey.MessageBrokers.RabbitMQ
         public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app)
             => new BusSubscriber(app);
 
+        public static IConveyBuilder AddExceptionToMessageMapper<T>(this IConveyBuilder builder)
+            where T : class, IExceptionToMessageMapper
+        {
+            builder.Services.AddTransient<IExceptionToMessageMapper, T>();
+
+            return builder;
+        }
+
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
         {
