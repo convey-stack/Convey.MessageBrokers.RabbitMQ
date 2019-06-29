@@ -30,7 +30,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         }
 
         public IBusSubscriber Subscribe<TMessage>(Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle,
-            Func<TMessage, Exception, object> onError = null) where TMessage : class
+            Func<TMessage, ConveyException, object> onError = null) where TMessage : class
         {
             _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
             {
@@ -53,7 +53,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
 
         private async Task<Acknowledgement> TryHandleAsync<TMessage>(TMessage message,
             ICorrelationContext correlationContext, Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle,
-            Func<TMessage, Exception, object> onError = null)
+            Func<TMessage, ConveyException, object> onError = null)
         {
             var currentRetry = 0;
             var retryPolicy = Policy
@@ -102,7 +102,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                                         $"with correlation id: '{correlationContext.Id}', " +
                                         $"retry {currentRetry - 1}/{_retries}...");
                 }
-
             });
         }
     }
