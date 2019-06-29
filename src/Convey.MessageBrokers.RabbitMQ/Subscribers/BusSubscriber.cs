@@ -88,7 +88,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 {
                     currentRetry++;
                     _logger.LogError(ex, ex.Message);
-                    var rejectedEvent = _exceptionToMessageMapper.Map(ex);
+                    var rejectedEvent = _exceptionToMessageMapper.Map(ex, message);
                     if (rejectedEvent is null)
                     {
                         throw new Exception($"Unable to handle a message: '{messageName}' " +
@@ -108,7 +108,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
 
         private class EmptyExceptionToMessageMapper : IExceptionToMessageMapper
         {
-            public object Map(Exception exception) => null;
+            public object Map(Exception exception, object message) => null;
         }
     }
 }
