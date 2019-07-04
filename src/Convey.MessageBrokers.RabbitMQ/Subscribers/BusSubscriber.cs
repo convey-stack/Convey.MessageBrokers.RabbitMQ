@@ -61,8 +61,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 .Handle<Exception>()
                 .WaitAndRetryAsync(_retries, i => TimeSpan.FromSeconds(_retryInterval));
 
-            var messageName = message.GetType().Name;
-
+            var messageName = message.GetMessageName();
             return await retryPolicy.ExecuteAsync<Acknowledgement>(async () =>
             {
                 try
@@ -97,7 +96,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                     }
 
                     await _busClient.PublishAsync(rejectedEvent, ctx => ctx.UseMessageContext(correlationContext));
-                    _logger.LogInformation($"Published a rejected event: '{rejectedEvent.GetType().Name}' " +
+                    _logger.LogInformation($"Published a rejected event: '{rejectedEvent.GetMessageName()}' " +
                                            $"for the message: '{messageName}' with correlation id: '{correlationContext.Id}'.");
 
                     return new Ack();

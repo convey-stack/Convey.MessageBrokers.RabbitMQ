@@ -22,6 +22,9 @@ namespace Convey.MessageBrokers.RabbitMQ
     {
         private const string SectionName = "rabbitMq";
         private const string RegistryName = "messageBrokers.rabbitMq";
+
+        internal static string GetMessageName(this object message)
+            => message.GetType().Name.Underscore().ToLowerInvariant();
         
         public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app)
             => new BusSubscriber(app);
