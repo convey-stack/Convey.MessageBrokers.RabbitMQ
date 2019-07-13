@@ -38,43 +38,43 @@ namespace Convey.MessageBrokers.RabbitMQ
         }
 
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName,
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
         {
             var options = builder.GetOptions<RabbitMqOptions>(sectionName);
-            return builder.AddRabbitMq(options, registerPlugins);
+            return builder.AddRabbitMq(options, plugins);
         }
         
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions, 
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
         {
             var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
-            return builder.AddRabbitMq(options, registerPlugins);
+            return builder.AddRabbitMq(options, plugins);
         }
 
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options, 
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
         {
+            builder.Services.AddSingleton(options);
+            builder.Services.AddSingleton<RawRabbitConfiguration>(options);
             if (!builder.TryRegister(RegistryName))
             {
                 return builder;
             }
             
-            builder.Services.AddSingleton(options);
-            builder.Services.AddSingleton<RawRabbitConfiguration>(options);
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
             builder.Services.AddSingleton<ICorrelationContextAccessor>(new CorrelationContextAccessor());
 
-            ConfigureBus(builder, registerPlugins);
+            ConfigureBus(builder, plugins);
 
             return builder;
         }
 
         private static void ConfigureBus(IConveyBuilder builder,
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> registerPlugins = null)
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
         {
             builder.Services.AddSingleton<IInstanceFactory>(serviceProvider =>
             {
-                var register = registerPlugins?.Invoke(new RabbitMqPluginRegister(serviceProvider));
+                var register = plugins?.Invoke(new RabbitMqPluginRegister(serviceProvider));
                 var options = serviceProvider.GetService<RabbitMqOptions>();
                 var configuration = serviceProvider.GetService<RawRabbitConfiguration>();
                 var namingConventions = new CustomNamingConventions(options.Namespace);
