@@ -17,7 +17,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Publishers
         public Task PublishAsync<TMessage>(TMessage message, ICorrelationContext context)
             where TMessage : class
         {
-            if (context.Id == Guid.Empty)
+            if (context is null || context.Id == Guid.Empty)
             {
                 context = CorrelationContext.FromId(Guid.NewGuid());
             }
