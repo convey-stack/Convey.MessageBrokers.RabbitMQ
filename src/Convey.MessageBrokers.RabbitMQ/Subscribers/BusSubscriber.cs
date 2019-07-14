@@ -38,6 +38,12 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             {
                 try
                 {
+                    var processor = _serviceProvider.GetService<IMessageProcessor>();
+                    if (!await processor.TryProcessAsync(correlationContext.Id.ToString()))
+                    {
+                        return new Ack();
+                    }
+
                     var accessor = _serviceProvider.GetService<ICorrelationContextAccessor>();
                     accessor.CorrelationContext = correlationContext;
                     var exception = await TryHandleAsync(message, correlationContext, handle);

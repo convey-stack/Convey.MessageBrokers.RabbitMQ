@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Convey.MessageBrokers.RabbitMQ.Builders;
+using Convey.MessageBrokers.RabbitMQ.Processors;
 using Convey.MessageBrokers.RabbitMQ.Publishers;
 using Convey.MessageBrokers.RabbitMQ.Registers;
 using Convey.MessageBrokers.RabbitMQ.Subscribers;
@@ -60,8 +61,10 @@ namespace Convey.MessageBrokers.RabbitMQ
             {
                 return builder;
             }
-            
+
+            builder.Services.AddMemoryCache();
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
+            builder.Services.AddTransient<IMessageProcessor, InMemoryMessageProcessor>();
             builder.Services.AddSingleton<ICorrelationContextAccessor>(new CorrelationContextAccessor());
 
             ConfigureBus(builder, plugins);
