@@ -58,15 +58,15 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             return this;
         }
 
-        private Task<Exception> TryHandleAsync<TMessage>(TMessage message,
-            ICorrelationContext correlationContext, Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle)
+        private Task<Exception> TryHandleAsync<TMessage>(TMessage message, ICorrelationContext correlationContext,
+            Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle)
         {
             var currentRetry = 0;
+            var messageName = message.GetMessageName();
             var retryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(_retries, i => TimeSpan.FromSeconds(_retryInterval));
 
-            var messageName = message.GetMessageName();
             return retryPolicy.ExecuteAsync(async () =>
             {
                 try
