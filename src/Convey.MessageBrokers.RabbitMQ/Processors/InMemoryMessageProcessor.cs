@@ -7,23 +7,35 @@ namespace Convey.MessageBrokers.RabbitMQ.Processors
     public class InMemoryMessageProcessor : IMessageProcessor
     {
         private readonly IMemoryCache _cache;
+        private readonly RabbitMqOptions _options;
 
-        public InMemoryMessageProcessor(IMemoryCache cache)
+        public InMemoryMessageProcessor(IMemoryCache cache, RabbitMqOptions options)
         {
             _cache = cache;
+            _options = options;
         }
 
         public Task<bool> TryProcessAsync(string id)
         {
-            var key = $"messages:{id}";
+            var key = GetKey(_options.Namespace, id);
             if (_cache.TryGetValue(key, out _))
             {
                 return Task.FromResult(false);
             }
 
-            _cache.Set(key, id, TimeSpan.FromMinutes(5));
+            var expiry = _options.MessageProcessor?.MessageExpirySeconds ?? 0;
+            _cache.Set(key, id, TimeSpan.FromSeconds(expiry));
 
             return Task.FromResult(true);
         }
+
+        public Task RemoveAsync(string id)
+        {
+            _cache.Remove(GetKey(_options.Namespace, id));
+
+            return Task.CompletedTask;
+        }
+
+        private static string GetKey(string @namespace, string id) => $"messages:{@namespace}:{id}";
     }
 }

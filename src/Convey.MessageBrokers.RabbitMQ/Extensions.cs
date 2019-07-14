@@ -7,6 +7,7 @@ using Convey.MessageBrokers.RabbitMQ.Processors;
 using Convey.MessageBrokers.RabbitMQ.Publishers;
 using Convey.MessageBrokers.RabbitMQ.Registers;
 using Convey.MessageBrokers.RabbitMQ.Subscribers;
+using Convey.Persistence.Redis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using RawRabbit;
@@ -26,7 +27,7 @@ namespace Convey.MessageBrokers.RabbitMQ
 
         internal static string GetMessageName(this object message)
             => message.GetType().Name.Underscore().ToLowerInvariant();
-        
+
         public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app)
             => new BusSubscriber(app);
 
@@ -39,21 +40,31 @@ namespace Convey.MessageBrokers.RabbitMQ
         }
 
         public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName,
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
+            string redisSectionName = "redis", Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
         {
             var options = builder.GetOptions<RabbitMqOptions>(sectionName);
-            return builder.AddRabbitMq(options, plugins);
-        }
-        
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions, 
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
-        {
-            var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
-            return builder.AddRabbitMq(options, plugins);
+            var redisOptions = builder.GetOptions<RedisOptions>(redisSectionName);
+            return builder.AddRabbitMq(options, plugins, b => b.AddRedis(redisOptions));
         }
 
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options, 
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder,
+            Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions,
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null,
+            Func<IRedisOptionsBuilder, IRedisOptionsBuilder> buildRedisOptions = null)
+        {
+            var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
+            return buildRedisOptions is null
+                ? builder.AddRabbitMq(options, plugins)
+                : builder.AddRabbitMq(options, plugins, b => b.AddRedis(buildRedisOptions));
+        }
+
+        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options,
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null,
+            RedisOptions redisOptions = null)
+            => builder.AddRabbitMq(options, plugins, b => b.AddRedis(redisOptions ?? new RedisOptions()));
+
+        private static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options,
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins, Action<IConveyBuilder> registerRedis)
         {
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<RawRabbitConfiguration>(options);
@@ -62,9 +73,26 @@ namespace Convey.MessageBrokers.RabbitMQ
                 return builder;
             }
 
-            builder.Services.AddMemoryCache();
             builder.Services.AddTransient<IBusPublisher, BusPublisher>();
-            builder.Services.AddTransient<IMessageProcessor, InMemoryMessageProcessor>();
+            if (options.MessageProcessor?.Enabled == true)
+            {
+                switch (options.MessageProcessor.Type?.ToLowerInvariant())
+                {
+                    case "redis":
+                        registerRedis(builder);
+                        builder.Services.AddTransient<IMessageProcessor, RedisMessageProcessor>();
+                        break;
+                    default:
+                        builder.Services.AddMemoryCache();
+                        builder.Services.AddTransient<IMessageProcessor, InMemoryMessageProcessor>();
+                        break;
+                }
+            }
+            else
+            {
+                builder.Services.AddSingleton<IMessageProcessor, EmptyMessageProcessor>();
+            }
+
             builder.Services.AddSingleton<ICorrelationContextAccessor>(new CorrelationContextAccessor());
 
             ConfigureBus(builder, plugins);
@@ -117,16 +145,17 @@ namespace Convey.MessageBrokers.RabbitMQ
                 ErrorExchangeNamingConvention = () => $"{defaultNamespace}.error";
                 RetryLaterExchangeConvention = span => $"{defaultNamespace}.retry";
                 RetryLaterQueueNameConvetion = (exchange, span) =>
-                    $"{defaultNamespace}.retry_for_{exchange.Replace(".", "_")}_in_{span.TotalMilliseconds}_ms".ToLowerInvariant();
+                    $"{defaultNamespace}.retry_for_{exchange.Replace(".", "_")}_in_{span.TotalMilliseconds}_ms"
+                        .ToLowerInvariant();
             }
-            
+
             private static string GetExchange(Type type, string defaultNamespace)
             {
                 var (@namespace, key) = GetNamespaceAndKey(type, defaultNamespace);
 
                 return (string.IsNullOrWhiteSpace(@namespace) ? key : $"{@namespace}").ToLowerInvariant();
             }
-            
+
             private static string GetRoutingKey(Type type, string defaultNamespace)
             {
                 var (@namespace, key) = GetNamespaceAndKey(type, defaultNamespace);
@@ -175,6 +204,13 @@ namespace Convey.MessageBrokers.RabbitMQ
             clientBuilder.Register(c => c.Use<RetryStagedMiddleware>());
 
             return clientBuilder;
+        }
+
+        private class EmptyMessageProcessor : IMessageProcessor
+        {
+            public Task<bool> TryProcessAsync(string id) => Task.FromResult(true);
+
+            public Task RemoveAsync(string id) => Task.CompletedTask;
         }
     }
 }

@@ -36,10 +36,11 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         {
             _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
             {
+                var id = correlationContext.Id.ToString();
+                var processor = _serviceProvider.GetService<IMessageProcessor>();
                 try
                 {
-                    var processor = _serviceProvider.GetService<IMessageProcessor>();
-                    if (!await processor.TryProcessAsync(correlationContext.Id.ToString()))
+                    if (!await processor.TryProcessAsync(id))
                     {
                         return new Ack();
                     }
@@ -57,6 +58,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, ex.Message);
+                    await processor.RemoveAsync(id);
                     throw;
                 }
             });
