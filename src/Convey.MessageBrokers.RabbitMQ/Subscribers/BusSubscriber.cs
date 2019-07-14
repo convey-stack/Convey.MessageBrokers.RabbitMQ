@@ -40,8 +40,13 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 {
                     var accessor = _serviceProvider.GetService<ICorrelationContextAccessor>();
                     accessor.CorrelationContext = correlationContext;
+                    var (ack, ex) = await TryHandleAsync(message, correlationContext, handle);
+                    if (ex is null)
+                    {
+                        return ack;
+                    }
 
-                    return await TryHandleAsync(message, correlationContext, handle);
+                    throw ex;
                 }
                 catch (Exception ex)
                 {
@@ -53,7 +58,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             return this;
         }
 
-        private async Task<Acknowledgement> TryHandleAsync<TMessage>(TMessage message,
+        private async Task<(Acknowledgement, Exception)> TryHandleAsync<TMessage>(TMessage message,
             ICorrelationContext correlationContext, Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle)
         {
             var currentRetry = 0;
@@ -62,7 +67,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 .WaitAndRetryAsync(_retries, i => TimeSpan.FromSeconds(_retryInterval));
 
             var messageName = message.GetMessageName();
-            return await retryPolicy.ExecuteAsync<Acknowledgement>(async () =>
+            return await retryPolicy.ExecuteAsync<(Acknowledgement ack, Exception ex)>(async () =>
             {
                 try
                 {
@@ -81,7 +86,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                                          $"with correlation id: '{correlationContext.Id}'. {retryMessage}";
                     _logger.LogInformation(postLogMessage);
 
-                    return new Ack();
+                    return (new Ack(), null);
                 }
                 catch (Exception ex)
                 {
@@ -91,16 +96,18 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                     if (rejectedEvent is null)
                     {
                         throw new Exception($"Unable to handle a message: '{messageName}' " +
-                                            $"with correlation id: '{correlationContext.Id}', " +
-                                            $"retry {currentRetry - 1}/{_retries}...");
+                                                  $"with correlation id: '{correlationContext.Id}', " +
+                                                  $"retry {currentRetry - 1}/{_retries}...");
                     }
 
                     await _busClient.PublishAsync(rejectedEvent, ctx => ctx.UseMessageContext(correlationContext));
-                    _logger.LogInformation($"Published a rejected event: '{rejectedEvent.GetMessageName()}' " +
-                                           $"for the message: '{messageName}' with correlation id: '{correlationContext.Id}'.");
+                    _logger.LogWarning($"Published a rejected event: '{rejectedEvent.GetMessageName()}' " +
+                                       $"for the message: '{messageName}' with correlation id: '{correlationContext.Id}'.");
 
-                    return new Ack();
-
+                    var exception = new Exception($"Handling a message: '{messageName}' failed and " +
+                                                  $"rejected event: '{rejectedEvent.GetMessageName()}' was published.");
+                    
+                    return (new Ack(), exception);
                 }
             });
         }
