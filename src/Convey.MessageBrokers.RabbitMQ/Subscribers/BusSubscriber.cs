@@ -38,9 +38,8 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             {
                 try
                 {
-                    var id = correlationContext.Id;
                     var processor = _serviceProvider.GetService<IMessageProcessor>();
-                    if (id != Guid.Empty && !await processor.TryProcessAsync(id.ToString()))
+                    if (!await processor.TryProcessAsync(correlationContext.Id.ToString()))
                     {
                         return new Ack();
                     }

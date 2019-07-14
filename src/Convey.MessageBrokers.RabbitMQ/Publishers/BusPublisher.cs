@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using RawRabbit;
 using RawRabbit.Enrichers.MessageContext;
@@ -13,8 +14,15 @@ namespace Convey.MessageBrokers.RabbitMQ.Publishers
             _busClient = busClient;
         }
 
-        public async Task PublishAsync<TMessage>(TMessage message, ICorrelationContext context)
+        public Task PublishAsync<TMessage>(TMessage message, ICorrelationContext context)
             where TMessage : class
-            => await _busClient.PublishAsync(message, ctx => ctx.UseMessageContext(context));
+        {
+            if (context.Id == Guid.Empty)
+            {
+                context = CorrelationContext.FromId(Guid.NewGuid());
+            }
+
+            return _busClient.PublishAsync(message, ctx => ctx.UseMessageContext(context));
+        }
     }
 }
