@@ -117,6 +117,7 @@ namespace Convey.MessageBrokers.RabbitMQ
                         register?.Register(ioc);
                         ioc.AddSingleton(options);
                         ioc.AddSingleton(configuration);
+                        ioc.AddSingleton(serviceProvider);
                         ioc.AddSingleton<INamingConventions>(namingConventions);
                     },
                     Plugins = p =>
@@ -127,6 +128,11 @@ namespace Convey.MessageBrokers.RabbitMQ
                             .UpdateRetryInfo()
                             .UseMessageContext<CorrelationContext>()
                             .UseContextForwarding();
+
+                        if (options.MessageProcessor?.Enabled == true)
+                        {
+                            p.ProcessUniqueMessages();
+                        }
                     }
                 });
             });
@@ -180,6 +186,48 @@ namespace Convey.MessageBrokers.RabbitMQ
 
                 return (@namespace, key);
             }
+        }
+
+        private class ProcessUniqueMessagesMiddleware : StagedMiddleware
+        {
+            private readonly IServiceProvider _serviceProvider;
+            public override string StageMarker { get; } = RawRabbit.Pipe.StageMarker.MessageDeserialized;
+
+            public ProcessUniqueMessagesMiddleware(IServiceProvider serviceProvider)
+            {
+                _serviceProvider = serviceProvider;
+            }
+
+            public override async Task InvokeAsync(IPipeContext context,
+                CancellationToken token = new CancellationToken())
+            {
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var messageProcessor = scope.ServiceProvider.GetRequiredService<IMessageProcessor>();
+                    var messageId = context.GetDeliveryEventArgs().BasicProperties.MessageId;
+                    if (!await messageProcessor.TryProcessAsync(messageId))
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        await Next.InvokeAsync(context, token);
+                    }
+                    catch
+                    {
+                        await messageProcessor.RemoveAsync(messageId);
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static IClientBuilder ProcessUniqueMessages(this IClientBuilder clientBuilder)
+        {
+            clientBuilder.Register(c => c.Use<ProcessUniqueMessagesMiddleware>());
+
+            return clientBuilder;
         }
 
         private class RetryStagedMiddleware : StagedMiddleware

@@ -36,15 +36,8 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         {
             _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
             {
-                var id = correlationContext.Id.ToString();
-                var processor = _serviceProvider.GetService<IMessageProcessor>();
                 try
                 {
-                    if (!await processor.TryProcessAsync(id))
-                    {
-                        return new Ack();
-                    }
-
                     var accessor = _serviceProvider.GetService<ICorrelationContextAccessor>();
                     accessor.CorrelationContext = correlationContext;
                     var exception = await TryHandleAsync(message, correlationContext, handle);
@@ -58,7 +51,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, ex.Message);
-                    await processor.RemoveAsync(id);
                     throw;
                 }
             });
