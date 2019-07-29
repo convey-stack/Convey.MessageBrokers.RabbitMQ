@@ -34,7 +34,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         public IBusSubscriber Subscribe<TMessage>(Func<IServiceProvider, TMessage, ICorrelationContext, Task> handle)
             where TMessage : class
         {
-            _busClient.SubscribeAsync<TMessage, CorrelationContext>(async (message, correlationContext) =>
+            _busClient.SubscribeAsync<TMessage, ICorrelationContext>(async (message, correlationContext) =>
             {
                 try
                 {
@@ -76,14 +76,14 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                         : $"Retry: {currentRetry}'.";
 
                     var preLogMessage = $"Handling a message: '{messageName}' " +
-                                        $"with correlation id: '{correlationContext.Id}'. {retryMessage}";
+                                        $"with correlation id: '{correlationContext.CorrelationId}'. {retryMessage}";
 
                     _logger.LogInformation(preLogMessage);
 
                     await handle(_serviceProvider, message, correlationContext);
 
                     var postLogMessage = $"Handled a message: '{messageName}' " +
-                                         $"with correlation id: '{correlationContext.Id}'. {retryMessage}";
+                                         $"with correlation id: '{correlationContext.CorrelationId}'. {retryMessage}";
                     _logger.LogInformation(postLogMessage);
 
                     return null;
@@ -96,13 +96,13 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                     if (rejectedEvent is null)
                     {
                         throw new Exception($"Unable to handle a message: '{messageName}' " +
-                                            $"with correlation id: '{correlationContext.Id}', " +
+                                            $"with correlation id: '{correlationContext.CorrelationId}', " +
                                             $"retry {currentRetry - 1}/{_retries}...", ex);
                     }
 
                     await _busClient.PublishAsync(rejectedEvent, ctx => ctx.UseMessageContext(correlationContext));
                     _logger.LogWarning($"Published a rejected event: '{rejectedEvent.GetMessageName()}' " +
-                                       $"for the message: '{messageName}' with correlation id: '{correlationContext.Id}'.");
+                                       $"for the message: '{messageName}' with correlation id: '{correlationContext.CorrelationId}'.");
 
                     return new Exception($"Handling a message: '{messageName}' failed and rejected event: " +
                                          $"'{rejectedEvent.GetMessageName()}' was published.", ex);

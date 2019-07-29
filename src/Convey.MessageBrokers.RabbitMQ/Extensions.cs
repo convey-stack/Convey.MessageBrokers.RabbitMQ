@@ -10,6 +10,7 @@ using Convey.MessageBrokers.RabbitMQ.Subscribers;
 using Convey.Persistence.Redis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using RawRabbit;
 using RawRabbit.Common;
 using RawRabbit.Configuration;
@@ -17,6 +18,8 @@ using RawRabbit.Enrichers.MessageContext;
 using RawRabbit.Instantiation;
 using RawRabbit.Pipe;
 using RawRabbit.Pipe.Middleware;
+using RawRabbit.Serialization;
+using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace Convey.MessageBrokers.RabbitMQ
 {
@@ -39,32 +42,36 @@ namespace Convey.MessageBrokers.RabbitMQ
             return builder;
         }
 
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, string sectionName = SectionName,
+        public static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder, string sectionName = SectionName,
             string redisSectionName = "redis", Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
+            where TContext : new()
         {
             var options = builder.GetOptions<RabbitMqOptions>(sectionName);
             var redisOptions = builder.GetOptions<RedisOptions>(redisSectionName);
-            return builder.AddRabbitMq(options, plugins, b => b.AddRedis(redisOptions));
+            return builder.AddRabbitMq<TContext>(options, plugins, b => b.AddRedis(redisOptions));
         }
 
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder,
+        public static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder,
             Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null,
             Func<IRedisOptionsBuilder, IRedisOptionsBuilder> buildRedisOptions = null)
+            where TContext : new()
         {
             var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
             return buildRedisOptions is null
-                ? builder.AddRabbitMq(options, plugins)
-                : builder.AddRabbitMq(options, plugins, b => b.AddRedis(buildRedisOptions));
+                ? builder.AddRabbitMq<TContext>(options, plugins)
+                : builder.AddRabbitMq<TContext>(options, plugins, b => b.AddRedis(buildRedisOptions));
         }
 
-        public static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options,
+        public static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder, RabbitMqOptions options,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null,
             RedisOptions redisOptions = null)
-            => builder.AddRabbitMq(options, plugins, b => b.AddRedis(redisOptions ?? new RedisOptions()));
+            where TContext : new()
+            => builder.AddRabbitMq<TContext>(options, plugins, b => b.AddRedis(redisOptions ?? new RedisOptions()));
 
-        private static IConveyBuilder AddRabbitMq(this IConveyBuilder builder, RabbitMqOptions options,
+        private static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder, RabbitMqOptions options,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins, Action<IConveyBuilder> registerRedis)
+            where TContext : new()
         {
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<RawRabbitConfiguration>(options);
@@ -95,13 +102,13 @@ namespace Convey.MessageBrokers.RabbitMQ
 
             builder.Services.AddSingleton<ICorrelationContextAccessor>(new CorrelationContextAccessor());
 
-            ConfigureBus(builder, plugins);
+            ConfigureBus<TContext>(builder, plugins);
 
             return builder;
         }
 
-        private static void ConfigureBus(IConveyBuilder builder,
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
+        private static void ConfigureBus<TContext>(IConveyBuilder builder,
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null) where TContext : new()
         {
             builder.Services.AddSingleton<IInstanceFactory>(serviceProvider =>
             {
@@ -119,6 +126,8 @@ namespace Convey.MessageBrokers.RabbitMQ
                         ioc.AddSingleton(configuration);
                         ioc.AddSingleton(serviceProvider);
                         ioc.AddSingleton<INamingConventions>(namingConventions);
+                        ioc.AddSingleton<ISerializer, Serializer<TContext>>(ctx =>
+                            new Serializer<TContext>(ctx.GetService<JsonSerializer>()));
                     },
                     Plugins = p =>
                     {
@@ -126,7 +135,7 @@ namespace Convey.MessageBrokers.RabbitMQ
                         p.UseAttributeRouting()
                             .UseRetryLater()
                             .UpdateRetryInfo()
-                            .UseMessageContext<CorrelationContext>()
+                            .UseMessageContext<TContext>()
                             .UseContextForwarding();
 
                         if (options.MessageProcessor?.Enabled == true)
@@ -238,7 +247,7 @@ namespace Convey.MessageBrokers.RabbitMQ
                 CancellationToken token = new CancellationToken())
             {
                 var retry = context.GetRetryInformation();
-                if (context.GetMessageContext() is CorrelationContext message)
+                if (context.GetMessageContext() is ICorrelationContext message)
                 {
                     message.Retries = retry.NumberOfRetries;
                 }
@@ -259,6 +268,33 @@ namespace Convey.MessageBrokers.RabbitMQ
             public Task<bool> TryProcessAsync(string id) => Task.FromResult(true);
 
             public Task RemoveAsync(string id) => Task.CompletedTask;
+        }
+        
+        private class Serializer<T> : RawRabbit.Serialization.JsonSerializer
+        {
+            public Serializer(JsonSerializer json) : base(json)
+            {
+                json.Converters.Add(new CorrelationContextConverter<T>());
+            }
+        }
+        
+        private class CorrelationContextConverter<T> : JsonConverter
+        {
+            public override bool CanConvert(Type objectType)
+            {
+                return (objectType == typeof(ICorrelationContext));
+            }
+
+            public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                JsonSerializer serializer)
+            {
+                return serializer.Deserialize(reader, typeof(T));
+            }
+
+            public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+            {
+                serializer.Serialize(writer, value, typeof(T));
+            }
         }
     }
 }

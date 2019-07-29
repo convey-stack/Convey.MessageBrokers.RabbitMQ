@@ -17,12 +17,19 @@ namespace Convey.MessageBrokers.RabbitMQ.Publishers
         public Task PublishAsync<TMessage>(TMessage message, ICorrelationContext context)
             where TMessage : class
         {
-            if (context is null || context.Id == Guid.Empty)
+            if (context is null || string.IsNullOrWhiteSpace(context.CorrelationId))
             {
-                context = CorrelationContext.FromId(Guid.NewGuid());
+                context = new CorrelationContext();
             }
 
             return _busClient.PublishAsync(message, ctx => ctx.UseMessageContext(context));
+        }
+
+        private class CorrelationContext : ICorrelationContext
+        {
+            public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
+            public string SpanContext { get; set; }
+            public int Retries { get; set; }
         }
     }
 }
