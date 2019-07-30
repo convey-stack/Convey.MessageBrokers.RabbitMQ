@@ -44,7 +44,7 @@ namespace Convey.MessageBrokers.RabbitMQ
 
         public static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder, string sectionName = SectionName,
             string redisSectionName = "redis", Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
-            where TContext : new()
+            where TContext : ICorrelationContext, new()
         {
             var options = builder.GetOptions<RabbitMqOptions>(sectionName);
             var redisOptions = builder.GetOptions<RedisOptions>(redisSectionName);
@@ -55,7 +55,7 @@ namespace Convey.MessageBrokers.RabbitMQ
             Func<IRabbitMqOptionsBuilder, IRabbitMqOptionsBuilder> buildOptions,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null,
             Func<IRedisOptionsBuilder, IRedisOptionsBuilder> buildRedisOptions = null)
-            where TContext : new()
+            where TContext : ICorrelationContext, new()
         {
             var options = buildOptions(new RabbitMqOptionsBuilder()).Build();
             return buildRedisOptions is null
@@ -66,12 +66,12 @@ namespace Convey.MessageBrokers.RabbitMQ
         public static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder, RabbitMqOptions options,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null,
             RedisOptions redisOptions = null)
-            where TContext : new()
+            where TContext : ICorrelationContext, new()
             => builder.AddRabbitMq<TContext>(options, plugins, b => b.AddRedis(redisOptions ?? new RedisOptions()));
 
         private static IConveyBuilder AddRabbitMq<TContext>(this IConveyBuilder builder, RabbitMqOptions options,
             Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins, Action<IConveyBuilder> registerRedis)
-            where TContext : new()
+            where TContext : ICorrelationContext, new()
         {
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<RawRabbitConfiguration>(options);
@@ -108,7 +108,8 @@ namespace Convey.MessageBrokers.RabbitMQ
         }
 
         private static void ConfigureBus<TContext>(IConveyBuilder builder,
-            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null) where TContext : new()
+            Func<IRabbitMqPluginRegister, IRabbitMqPluginRegister> plugins = null)
+            where TContext : ICorrelationContext, new()
         {
             builder.Services.AddSingleton<IInstanceFactory>(serviceProvider =>
             {
