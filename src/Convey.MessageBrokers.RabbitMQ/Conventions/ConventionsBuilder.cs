@@ -6,14 +6,12 @@ namespace Convey.MessageBrokers.RabbitMQ.Conventions
 {
     public class ConventionsBuilder : IConventionsBuilder
     {
-        private readonly string _defaultExchangeName;
-        private readonly string _defaultExchangeType;
+        private readonly RabbitMqOptions _options;
         private readonly bool _underscore;
 
         public ConventionsBuilder(RabbitMqOptions options)
         {
-            _defaultExchangeName = options.Exchange?.Name;
-            _defaultExchangeType = options.Exchange?.Type;
+            _options = options;
             _underscore = options.ConventionsCasing?.Equals("underscore",
                               StringComparison.InvariantCultureIgnoreCase) == true;
         }
@@ -30,7 +28,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Conventions
         {
             var attribute = GeAttribute(type);
             var exchange = string.IsNullOrWhiteSpace(attribute?.Exchange)
-                ? string.IsNullOrWhiteSpace(_defaultExchangeName) ? type.Namespace : _defaultExchangeName
+                ? string.IsNullOrWhiteSpace(_options.Exchange?.Name) ? type.Namespace : _options.Exchange.Name
                 : attribute.Exchange;
 
             return WithCasing(exchange);
@@ -49,8 +47,29 @@ namespace Convey.MessageBrokers.RabbitMQ.Conventions
             var attribute = GeAttribute(type);
 
             return string.IsNullOrWhiteSpace(attribute?.ExchangeType)
-                ? string.IsNullOrWhiteSpace(_defaultExchangeType) ? "topic" : _defaultExchangeType
+                ? string.IsNullOrWhiteSpace(_options.Exchange?.Type) ? "topic" : _options.Exchange.Type
                 : attribute.ExchangeType;
+        }
+
+        public bool GetDeclareExchange(Type type)
+        {
+            var attribute = GeAttribute(type);
+
+            return attribute?.DeclareExchange ?? (_options.Exchange?.Declare ?? false);
+        }
+
+        public bool GetDurableExchange(Type type)
+        {
+            var attribute = GeAttribute(type);
+
+            return attribute?.DurableExchange ?? (_options.Exchange?.Durable ?? false);
+        }
+
+        public bool GetAutoDeleteExchange(Type type)
+        {
+            var attribute = GeAttribute(type);
+
+            return attribute?.AutoDeleteExchange ?? (_options.Exchange?.AutoDelete ?? false);
         }
 
         private string WithCasing(string value) => _underscore ? Underscore(value) : value;

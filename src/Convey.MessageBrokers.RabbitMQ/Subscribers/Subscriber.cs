@@ -50,7 +50,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
         {
             var conventions = _conventionsProvider.Get<T>();
             var channel = _connection.CreateModel();
-            channel.ExchangeDeclare(conventions.Exchange, conventions.ExchangeType);
             channel.QueueDeclare(conventions.Queue);
             channel.QueueBind(conventions.Queue, conventions.Exchange, conventions.RoutingKey);
             channel.BasicQos(0, 1, false);

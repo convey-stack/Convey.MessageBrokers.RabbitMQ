@@ -28,7 +28,8 @@ namespace Convey.MessageBrokers.RabbitMQ.Conventions
 
             conventions = _registry.Get(type) ?? new MessageConventions(type, _builder.GetRoutingKey(type),
                               _builder.GetExchange(type), _builder.GetQueue(type),
-                              _builder.GetExchangeType(type));
+                              _builder.GetExchangeType(type), _builder.GetDeclareExchange(type),
+                              _builder.GetDurableExchange(type), _builder.GetAutoDeleteExchange(type));
 
             _conventions.TryAdd(type, conventions);
 

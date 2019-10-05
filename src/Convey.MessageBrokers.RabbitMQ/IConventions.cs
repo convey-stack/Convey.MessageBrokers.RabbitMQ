@@ -9,5 +9,8 @@ namespace Convey.MessageBrokers.RabbitMQ
         string Exchange { get; }
         string Queue { get; }
         string ExchangeType { get; }
+        bool DeclareExchange { get; }
+        bool DurableExchange { get; }
+        bool AutoDeleteExchange { get; }
     }
 }

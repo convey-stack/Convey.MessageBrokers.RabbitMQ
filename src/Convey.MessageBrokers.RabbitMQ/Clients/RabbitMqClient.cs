@@ -11,7 +11,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Clients
         private readonly IConnection _connection;
         private readonly IContextProvider _contextProvider;
         private readonly IRabbitMqSerializer _serializer;
-        private readonly RabbitMqOptions _options;
         private readonly bool _contextEnabled;
         private readonly bool _includeCorrelationId;
 
@@ -21,12 +20,11 @@ namespace Convey.MessageBrokers.RabbitMQ.Clients
             _connection = connection;
             _contextProvider = contextProvider;
             _serializer = serializer;
-            _options = options;
             _contextEnabled = options.Context?.Enabled == true;
             _includeCorrelationId = options.Context?.IncludeCorrelationId == true;
         }
 
-        public void Send(object message, string routingKey, string exchange, object context = null)
+        public void Send(object message, IConventions conventions, ICorrelationContext context = null)
         {
             using (var channel = _connection.CreateModel())
             {
@@ -42,13 +40,13 @@ namespace Convey.MessageBrokers.RabbitMQ.Clients
                     IncludeContext(context, properties);
                 }
 
-                if (_options.Exchange.Declare)
+                if (conventions.DeclareExchange)
                 {
-                    channel.ExchangeDeclare(exchange, _options.Exchange.Type, _options.Exchange.Durable,
-                        _options.Exchange.AutoDelete);
+                    channel.ExchangeDeclare(conventions.Exchange, conventions.ExchangeType, conventions.DurableExchange,
+                        conventions.AutoDeleteExchange);
                 }
 
-                channel.BasicPublish(exchange, routingKey, properties, body);
+                channel.BasicPublish(conventions.Exchange, conventions.RoutingKey, properties, body);
             }
         }
 
@@ -66,7 +64,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Clients
                     _serializer.Serialize(new Context(properties.CorrelationId)));
                 return;
             }
-            
+
             properties.Headers.Add(_contextProvider.HeaderName, EmptyContext);
         }
 
@@ -74,7 +72,6 @@ namespace Convey.MessageBrokers.RabbitMQ.Clients
         {
             public string CorrelationId { get; set; }
             public string SpanContext { get; set; }
-            public int Retries { get; set; }
 
             public Context(string correlationId)
             {

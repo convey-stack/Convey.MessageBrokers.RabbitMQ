@@ -15,9 +15,8 @@ namespace Convey.MessageBrokers.RabbitMQ.Publishers
 
         public Task PublishAsync<T>(T message, ICorrelationContext context = null) where T : class
         {
-            var conventions = _conventionsProvider.Get<T>();
-            _client.Send(message, conventions.RoutingKey, conventions.Exchange, context);
-            
+            _client.Send(message, _conventionsProvider.Get<T>(), context);
+
             return Task.CompletedTask;
         }
     }
