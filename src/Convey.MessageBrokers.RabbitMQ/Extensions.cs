@@ -68,6 +68,7 @@ namespace Convey.MessageBrokers.RabbitMQ
                     RequestedFrameMax = options.RequestedFrameMax,
                     RequestedHeartbeat = options.RequestedHeartbeat,
                     UseBackgroundThreadsForIO = options.UseBackgroundThreadsForIO,
+                    DispatchConsumersAsync = true,
                     Ssl = options.Ssl is null
                         ? new SslOption()
                         : new SslOption(options.Ssl.ServerName, options.Ssl.CertificatePath, options.Ssl.Enabled)
