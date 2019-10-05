@@ -12,7 +12,7 @@ using RabbitMQ.Client;
 
 namespace Convey.MessageBrokers.RabbitMQ
 {
-    public static class RabbitExtensions
+    public static class Extensions
     {
         private const string SectionName = "rabbitmq";
         private const string RegistryName = "messageBrokers.rabbitmq";
