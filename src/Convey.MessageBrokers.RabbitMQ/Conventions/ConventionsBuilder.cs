@@ -48,7 +48,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Conventions
         {
             var attribute = GeAttribute(type);
 
-            return string.IsNullOrWhiteSpace(attribute?.Exchange)
+            return string.IsNullOrWhiteSpace(attribute?.ExchangeType)
                 ? string.IsNullOrWhiteSpace(_defaultExchangeType) ? "topic" : _defaultExchangeType
                 : attribute.ExchangeType;
         }
