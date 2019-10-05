@@ -16,13 +16,11 @@
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\..\..\Convey\src\Convey\Convey.csproj" />
     <ProjectReference Include="..\..\..\Convey.MessageBrokers\src\Convey.MessageBrokers\Convey.MessageBrokers.csproj" />
-    <ProjectReference Include="..\..\..\Convey.Persistence.Redis\src\Convey.Persistence.Redis\Convey.Persistence.Redis.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <PackageReference Include="Convey" Version="0.0.*" />
     <PackageReference Include="Convey.MessageBrokers" Version="0.0.*" />
-    <PackageReference Include="Convey.Persistence.Redis" Version="0.0.*" />
 
   </ItemGroup>
   
@@ -30,16 +28,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
-    <PackageReference Include="RawRabbit" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.DependencyInjection.ServiceCollection" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.Enrichers.Attributes" Version="2.0.0-rc5" />
+    <PackageReference Include="RabbitMQ.Client" Version="5.1.1" />
     <PackageReference Include="Polly" Version="7.0.0" />
-    <PackageReference Include="RawRabbit.Enrichers.Polly" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.Enrichers.MessageContext" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.Enrichers.MessageContext.Subscribe" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.Enrichers.RetryLater" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.Operations.Publish" Version="2.0.0-rc5" />
-    <PackageReference Include="RawRabbit.Operations.Subscribe" Version="2.0.0-rc5" />
   </ItemGroup>
   
 </Project>

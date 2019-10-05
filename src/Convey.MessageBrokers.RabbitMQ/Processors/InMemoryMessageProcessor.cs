@@ -4,7 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Convey.MessageBrokers.RabbitMQ.Processors
 {
-    public class InMemoryMessageProcessor : IMessageProcessor
+    internal sealed class InMemoryMessageProcessor : IMessageProcessor
     {
         private readonly IMemoryCache _cache;
         private readonly RabbitMqOptions _options;
@@ -17,7 +17,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Processors
 
         public Task<bool> TryProcessAsync(string id)
         {
-            var key = GetKey(_options.Namespace, id);
+            var key = GetKey(_options.Exchange?.Name, id);
             if (_cache.TryGetValue(key, out _))
             {
                 return Task.FromResult(false);
@@ -31,11 +31,12 @@ namespace Convey.MessageBrokers.RabbitMQ.Processors
 
         public Task RemoveAsync(string id)
         {
-            _cache.Remove(GetKey(_options.Namespace, id));
+            _cache.Remove(GetKey(_options.Exchange?.Name, id));
 
             return Task.CompletedTask;
         }
 
-        private static string GetKey(string @namespace, string id) => $"messages:{@namespace}:{id}";
+        private static string GetKey(string exchange, string id)
+            => $"messages:{(string.IsNullOrWhiteSpace(exchange) ? id : $"{exchange}:{id}")}";
     }
 }
