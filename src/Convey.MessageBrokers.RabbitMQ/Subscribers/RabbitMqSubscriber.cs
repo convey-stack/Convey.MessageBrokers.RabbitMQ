@@ -114,6 +114,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
                             await middleware.HandleAsync(Next, message, correlationContext, args);
                         }
 
+                        _channel.BasicAck(args.DeliveryTag, false);
                         return;
                     }
 
