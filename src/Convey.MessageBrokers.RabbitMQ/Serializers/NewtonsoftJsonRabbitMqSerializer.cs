@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Convey.MessageBrokers.RabbitMQ.Serializers
 {
@@ -6,9 +7,13 @@ namespace Convey.MessageBrokers.RabbitMQ.Serializers
     {
         private readonly JsonSerializerSettings _settings;
 
-        public NewtonsoftJsonRabbitMqSerializer(JsonSerializerSettings settings)
+        public NewtonsoftJsonRabbitMqSerializer(JsonSerializerSettings settings = null)
         {
-            _settings = settings;
+            _settings = settings ?? new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                ContractResolver = new CamelCasePropertyNamesContractResolver()
+            };
         }
         
         public string Serialize<T>(T value) => JsonConvert.SerializeObject(value, _settings);

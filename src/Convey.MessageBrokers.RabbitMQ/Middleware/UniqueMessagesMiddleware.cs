@@ -9,34 +9,56 @@ namespace Convey.MessageBrokers.RabbitMQ.Middleware
     {
         private readonly IMessageProcessor _messageProcessor;
         private readonly ILogger<UniqueMessagesMiddleware> _logger;
+        private readonly bool _loggerEnabled;
 
-        public UniqueMessagesMiddleware(IMessageProcessor messageProcessor, ILogger<UniqueMessagesMiddleware> logger)
+        public UniqueMessagesMiddleware(IMessageProcessor messageProcessor, RabbitMqOptions options,
+            ILogger<UniqueMessagesMiddleware> logger)
         {
             _messageProcessor = messageProcessor;
             _logger = logger;
+            _loggerEnabled = options.Logger?.Enabled == true;
         }
 
-        public async Task HandleAsync(Func<Task> next, object message,
-            ICorrelationContext correlationContext,
+        public async Task HandleAsync(Func<Task> next, object message, object correlationContext,
             BasicDeliverEventArgs args)
         {
             var messageId = args.BasicProperties.MessageId;
-            _logger.LogTrace($"Received a unique message with id: {messageId} to be processed.");
+            if (_loggerEnabled)
+            {
+                _logger.LogTrace($"Received a unique message with id: '{messageId}' to be processed.");
+            }
+
             if (!await _messageProcessor.TryProcessAsync(messageId))
             {
-                _logger.LogTrace($"A unique message with id: {messageId} was already processed.");
+                if (_loggerEnabled)
+                {
+                    _logger.LogTrace($"A unique message with id: '{messageId}' was already processed.");
+                }
+
                 return;
             }
 
             try
             {
-                _logger.LogTrace($"Processing a unique message with id: {messageId}...");
+                if (_loggerEnabled)
+                {
+                    _logger.LogTrace($"Processing a unique message with id: '{messageId}'...");
+                }
+
                 await next();
-                _logger.LogTrace($"Processed a unique message with id: {messageId}.");
+
+                if (_loggerEnabled)
+                {
+                    _logger.LogTrace($"Processed a unique message with id: '{messageId}'.");
+                }
             }
             catch
             {
-                _logger.LogTrace($"There was an error when processing a unique message with id: {messageId}.");
+                if (_loggerEnabled)
+                {
+                    _logger.LogTrace($"There was an error when processing a unique message with id: '{messageId}'.");
+                }
+
                 await _messageProcessor.RemoveAsync(messageId);
                 throw;
             }

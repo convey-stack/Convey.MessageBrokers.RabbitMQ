@@ -6,7 +6,6 @@ namespace Convey.MessageBrokers.RabbitMQ
 {
     public interface IRabbitMqMiddleware
     {
-        Task HandleAsync(Func<Task> next, object message, ICorrelationContext correlationContext,
-            BasicDeliverEventArgs args);
+        Task HandleAsync(Func<Task> next, object message, object correlationContext, BasicDeliverEventArgs args);
     }
 }

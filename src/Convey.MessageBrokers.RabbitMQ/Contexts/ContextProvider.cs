@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 
 namespace Convey.MessageBrokers.RabbitMQ.Contexts
 {
@@ -15,19 +16,19 @@ namespace Convey.MessageBrokers.RabbitMQ.Contexts
                 : options.Context.Header;
         }
 
-        public ICorrelationContext Get(IDictionary<string, object> headers)
+        public object Get(IDictionary<string, object> headers)
         {
             if (!headers.TryGetValue(HeaderName, out var context))
             {
                 return null;
             }
 
-            if (!(context is string payload))
+            if (!(context is byte[] bytes))
             {
                 return null;
             }
 
-            return _serializer.Deserialize<ICorrelationContext>(payload);
+            return _serializer.Deserialize(Encoding.UTF8.GetString(bytes));
         }
     }
 }
