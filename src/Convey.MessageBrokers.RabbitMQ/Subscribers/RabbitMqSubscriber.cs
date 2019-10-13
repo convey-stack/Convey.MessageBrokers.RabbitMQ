@@ -12,10 +12,10 @@ using RabbitMQ.Client.Events;
 
 namespace Convey.MessageBrokers.RabbitMQ.Subscribers
 {
-    internal sealed class RabbitMqSubscriber : ISubscriber
+    internal sealed class RabbitMqSubscriber : IBusSubscriber
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly IPublisher _publisher;
+        private readonly IBusPublisher _publisher;
         private readonly IConnection _connection;
         private readonly IRabbitMqSerializer _rabbitMqSerializer;
         private readonly IConventionsProvider _conventionsProvider;
@@ -35,7 +35,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             _serviceProvider = app.ApplicationServices.GetRequiredService<IServiceProvider>();
             _connection = app.ApplicationServices.GetRequiredService<IConnection>();
             _channel = _connection.CreateModel();
-            _publisher = app.ApplicationServices.GetRequiredService<IPublisher>();
+            _publisher = app.ApplicationServices.GetRequiredService<IBusPublisher>();
             _rabbitMqSerializer = app.ApplicationServices.GetRequiredService<IRabbitMqSerializer>();;
             _conventionsProvider = app.ApplicationServices.GetRequiredService<IConventionsProvider>();;
             _contextProvider = app.ApplicationServices.GetRequiredService<IContextProvider>();
@@ -50,7 +50,7 @@ namespace Convey.MessageBrokers.RabbitMQ.Subscribers
             _retryInterval = _options.RetryInterval > 0 ? _options.RetryInterval : 2;
         }
 
-        public ISubscriber Subscribe<T>(Func<IServiceProvider, T, object, Task> handle)
+        public IBusSubscriber Subscribe<T>(Func<IServiceProvider, T, object, Task> handle)
             where T : class
         {
             var conventions = _conventionsProvider.Get<T>();

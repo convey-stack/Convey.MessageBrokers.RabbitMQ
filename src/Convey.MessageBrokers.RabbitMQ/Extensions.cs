@@ -37,8 +37,8 @@ namespace Convey.MessageBrokers.RabbitMQ
             builder.Services.AddSingleton<IConventionsRegistry, ConventionsRegistry>();
             builder.Services.AddSingleton<IRabbitMqSerializer, NewtonsoftJsonRabbitMqSerializer>();
             builder.Services.AddSingleton<IRabbitMqClient, RabbitMqClient>();
-            builder.Services.AddSingleton<IPublisher, RabbitMqPublisher>();
-            builder.Services.AddSingleton<ISubscriber, RabbitMqSubscriber>();
+            builder.Services.AddSingleton<IBusPublisher, RabbitMqPublisher>();
+            builder.Services.AddSingleton<IBusSubscriber, RabbitMqSubscriber>();
             if (options.MessageProcessor?.Enabled == true)
             {
                 builder.Services.AddSingleton<IRabbitMqMiddleware, UniqueMessagesMiddleware>();
@@ -111,7 +111,7 @@ namespace Convey.MessageBrokers.RabbitMQ
             return builder;
         }
         
-        public static ISubscriber UseRabbitMq(this IApplicationBuilder app) => new RabbitMqSubscriber(app);
+        public static IBusSubscriber UseRabbitMq(this IApplicationBuilder app) => new RabbitMqSubscriber(app);
 
         private class EmptyMessageProcessor : IMessageProcessor
         {

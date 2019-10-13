@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 
 namespace Convey.MessageBrokers.RabbitMQ.Publishers
 {
-    internal sealed class RabbitMqPublisher : IPublisher
+    internal sealed class RabbitMqPublisher : IBusPublisher
     {
         private readonly IRabbitMqClient _client;
         private readonly IConventionsProvider _conventionsProvider;
